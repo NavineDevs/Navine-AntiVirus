@@ -1,7 +1,24 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import os
+
+# -------------------------
+# Plugin Metadata
+# -------------------------
+
+def register_plugin() -> Dict[str, str]:
+    return {
+        "name": "NaturalLanguageThreatExplainer",
+        "version": "1.0.0",
+        "author": "HitBoyXx23",
+        "description": "Explains scan results in human-readable language"
+    }
+
+# -------------------------
+# Data Model
+# -------------------------
 
 @dataclass
 class PluginResult:
@@ -12,6 +29,10 @@ class PluginResult:
     summary: str
     bullets: List[str]
     recommendation: str
+
+# -------------------------
+# Core Plugin Logic
+# -------------------------
 
 class NaturalLanguageThreatExplainer:
     plugin_name = "NaturalLanguageThreatExplainer"
@@ -33,6 +54,7 @@ class NaturalLanguageThreatExplainer:
         suspicious_ext = bool(heuristic.get("suspicious_ext"))
         suspicious_keywords = heuristic.get("suspicious_keywords") or []
         size_warning = bool(heuristic.get("file_size_warning"))
+
         content_scan = heuristic.get("content_scan") or {}
         suspicious_strings = content_scan.get("suspicious_strings") or []
 
@@ -50,7 +72,9 @@ class NaturalLanguageThreatExplainer:
         if size_warning:
             bullets.append("File size is unusually large and may indicate packing or embedded payloads.")
         if suspicious_strings:
-            bullets.append(f"File contents contain suspicious patterns: {', '.join(suspicious_strings[:5])}.")
+            bullets.append(
+                f"File contents contain suspicious patterns: {', '.join(suspicious_strings[:5])}."
+            )
 
         if vt_available:
             bullets.append(
@@ -69,28 +93,26 @@ class NaturalLanguageThreatExplainer:
             if details:
                 bullets.append("Detection signals: " + "; ".join(details[:3]) + ".")
             else:
-                bullets.append("Flagged by internal heuristics without a single dominant indicator.")
-
-        title = self._title(threat_level, filename)
-        summary = self._summary(
-            threat_level,
-            filename,
-            filepath,
-            vt_available,
-            vt_mal,
-            suspicious_ext,
-            bool(suspicious_strings),
-        )
-        recommendation = self._recommendation(threat_level, action, filepath)
+                bullets.append(
+                    "Flagged by internal heuristics without a single dominant indicator."
+                )
 
         plugin_out = PluginResult(
             name=self.plugin_name,
             risk_delta=0,
             severity=threat_level,
-            title=title,
-            summary=summary,
+            title=self._title(threat_level, filename),
+            summary=self._summary(
+                threat_level,
+                filename,
+                filepath,
+                vt_available,
+                vt_mal,
+                suspicious_ext,
+                bool(suspicious_strings),
+            ),
             bullets=bullets,
-            recommendation=recommendation,
+            recommendation=self._recommendation(threat_level, action, filepath),
         )
 
         return {
@@ -102,6 +124,10 @@ class NaturalLanguageThreatExplainer:
             "evidence": plugin_out.bullets,
             "recommendation": plugin_out.recommendation,
         }
+
+    # -------------------------
+    # Helpers
+    # -------------------------
 
     def _title(self, threat_level: str, filename: str) -> str:
         if threat_level == "clean":
@@ -127,7 +153,9 @@ class NaturalLanguageThreatExplainer:
         if vt_available and vt_mal > 0:
             parts.append("Multiple security engines confirmed malicious behavior.")
         elif suspicious_ext and suspicious_strings:
-            parts.append("The file matches both extension-based and content-based malware patterns.")
+            parts.append(
+                "The file matches both extension-based and content-based malware patterns."
+            )
         elif suspicious_ext:
             parts.append("The file type is commonly used in malware distribution.")
         elif suspicious_strings:
@@ -148,3 +176,19 @@ class NaturalLanguageThreatExplainer:
         if filepath:
             return f"Avoid opening this file and consider removing it from {filepath}."
         return "Avoid opening or executing this file until its safety is confirmed."
+
+# -------------------------
+# Plugin Entry Hook
+# -------------------------
+
+def scan_hook(
+    filepath: str,
+    file_hash: str,
+    file_size: int,
+    engine_result: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """
+    Hook called by the scanning framework after analysis.
+    """
+    explainer = NaturalLanguageThreatExplainer()
+    return explainer.analyze(engine_result)
