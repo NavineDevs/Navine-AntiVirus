@@ -1,3 +1,10 @@
+def register_plugin() -> Dict[str, str]:
+    return {
+        "name": "NaturalLanguageThreatExplainer",
+        "version": "1.0.0",
+        "author": "HitBoyXx23",
+        "description": "Explains scan results in human-readable language"
+    }
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,13 +15,6 @@ import os
 # Plugin Metadata
 # -------------------------
 
-def register_plugin() -> Dict[str, str]:
-    return {
-        "name": "NaturalLanguageThreatExplainer",
-        "version": "1.0.0",
-        "author": "HitBoyXx23",
-        "description": "Explains scan results in human-readable language"
-    }
 
 # -------------------------
 # Data Model
